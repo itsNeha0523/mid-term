@@ -1,0 +1,245 @@
+
+Database: cafeDB Collection: orders
+
+STEP 1: CREATE DATABASE AND INSERT RECORDS
+
+use cafeDB
+
+db.orders.insertMany([ { _id: 1, customer: “Meena”, item: “Coffee”, qty:
+2, price: 120, status: “delivered” }, { _id: 2, customer: “Ravi”, item:
+“Sandwich”, qty: 1, price: 180, status: “delivered” }, { _id: 3,
+customer: “Meena”, item: “Sandwich”, qty: 2, price: 180, status:
+“cancelled” }, { _id: 4, customer: “Karthik”, item: “Coffee”, qty: 3,
+price: 120, status: “delivered” }, { _id: 5, customer: “Ravi”, item:
+“Coffee”, qty: 1, price: 120, status: “delivered” }, { _id: 6, customer:
+“Meena”, item: “Cake”, qty: 1, price: 250, status: “delivered” }, { _id:
+7, customer: “Karthik”, item: “Cake”, qty: 2, price: 250, status:
+“pending” }])
+
+TASK 1: COUNT ORDERS BY STATUS
+
+Command:
+
+db.orders.aggregate([ { $group: {
+      _id: "$status”, count: { $sum: 1 } } }, { $sort: { count: -1 } }])
+
+Expected output:
+
+[ { _id: “delivered”, count: 5 }, { _id: “cancelled”, count: 1 }, { _id:
+“pending”, count: 1 }]
+
+Explanation: - $group groups documents by status. - $sum: 1 counts the
+documents in each group. - $sort: { count: -1 } sorts in descending
+order.
+
+TASK 2: FILTER WITH $match AND SHAPE WITH $project
+
+
+Command:
+
+db.orders.aggregate([ { $match: { status: “delivered” } }, { $project: {
+_id: 0, customer: 1, item: 1, qty: 1 } }])
+
+Expected output:
+
+[ { customer: “Meena”, item: “Coffee”, qty: 2 }, { customer: “Ravi”,
+item: “Sandwich”, qty: 1 }, { customer: “Karthik”, item: “Coffee”, qty:
+3 }, { customer: “Ravi”, item: “Coffee”, qty: 1 }, { customer: “Meena”,
+item: “Cake”, qty: 1 }]
+
+Explanation: - $match filters only delivered orders. - $project displays
+only the selected fields. - _id: 0 hides the document ID.
+
+TASK 3: CALCULATE REVENUE PER ITEM
+
+
+Formula: Revenue = Quantity x Price
+
+Command:
+
+db.orders.aggregate([ { $match: { status: “delivered” } }, { $group: {
+      _id: "$item”, totalQty: { $sum: "$qty” }, revenue: { $sum: {
+$multiply: ["$qty”, “$price”] } } } }, { $sort: { revenue: -1 } } ])
+
+Expected output:
+
+[ { _id: “Coffee”, totalQty: 6, revenue: 720 }, { _id: “Cake”, totalQty:
+1, revenue: 250 }, { _id: “Sandwich”, totalQty: 1, revenue: 180 }]
+
+Explanation: - $multiply multiplies quantity by price. - $sum calculates
+total quantity and revenue. - $sort arranges revenue in descending
+order.
+
+TASK 4: CALCULATE SPENDING PER CUSTOMER
+
+Command:
+
+db.orders.aggregate([ { $match: { status: “delivered” } }, { $group: {
+      _id: "$customer”, orders: { $sum: 1 }, totalSpend: { $sum: {
+$multiply: ["$qty”, “$price”] } } } }, { $project: {
+      _id: 0,
+      customer: "$_id”, orders: 1, totalSpend: 1 } }, { $sort: {
+totalSpend: -1 } } ])
+
+Expected output:
+
+[ { customer: “Meena”, orders: 2, totalSpend: 490 }, { customer:
+“Karthik”, orders: 1, totalSpend: 360 }, { customer: “Ravi”, orders: 2,
+totalSpend: 300 }]
+
+Explanation: - $match selects delivered orders. - $group groups orders
+by customer. - $sum: 1 counts each customer’s orders. - $multiply
+calculates the amount for each order. - $project renames _id to
+customer. - $sort displays the biggest spender first.
+
+TASK 5: FIND THE BEST CUSTOMER
+
+Command:
+
+db.orders.aggregate([ { $match: { status: “delivered” } }, { $group: {
+      _id: "$customer”, orders: { $sum: 1 }, totalSpend: { $sum: {
+$multiply: ["$qty”, “$price”] } } } }, { $project: {
+      _id: 0,
+      customer: "$_id”, totalSpend: 1 } }, { $sort: { totalSpend: -1 }
+}, { $limit: 1 } ])
+
+Expected output:
+
+[ { customer: “Meena”, totalSpend: 490 }]
+
+Explanation: - $sort places the highest spender first. - $limit: 1
+returns only the top customer.
+
+
+
+
+Syllabus: Unit 1 & 2 – $inc, $set, upsert, update expressions and
+deleting with match conditions.
+
+Database: libraryDB Collection: books
+
+STEP 1: CREATE DATABASE AND INSERT RECORDS
+
+use libraryDB
+
+db.books.insertMany([ { _id: 1, title: “Database Systems”, author:
+“Elmasri”, copies: 5, status: “available” }, { _id: 2, title: “Operating
+Systems”, author: “Galvin”, copies: 3, status: “available” }, { _id: 3,
+title: “Computer Networks”, author: “Tanenbaum”, copies: 0, status:
+“unavailable” }, { _id: 4, title: “Old Almanac 1990”, author: “Unknown”,
+copies: 0, status: “unavailable” }, { _id: 5, title: “Torn Notes”,
+author: “Unknown”, copies: 0, status: “damaged” }, { _id: 6, title:
+“Water-damaged Atlas”, author: “Unknown”, copies: 1, status: “damaged”
+}])
+
+TASK 1: ADD COPIES WITH $inc
+
+
+Command:
+
+db.books.updateOne( { title: “Operating Systems” }, { $inc: { copies: 2
+} } )
+
+Expected result:
+
+{ acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+
+Explanation: $inc increases the existing value by the given number. Old
+copies = 3 New copies = 3 + 2 = 5
+
+TASK 2: REDUCE COPIES WHEN A BOOK IS BORROWED
+
+
+Command:
+
+db.books.updateOne( { title: “Database Systems” }, { $inc: { copies: -1
+} } )
+
+Expected result:
+
+{ acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+
+Explanation: A negative value in $inc decreases the existing value. Old
+copies = 5 New copies = 5 - 1 = 4
+
+TASK 3: UPSERT A NEW BOOK
+
+
+Command:
+
+db.books.updateOne( { title: “Artificial Intelligence” }, { $set: {
+title: “Artificial Intelligence”, author: “Russell”, copies: 4, status:
+“available” } }, { upsert: true } )
+
+Expected result on first run:
+
+{ acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedCount:
+1 }
+
+Expected result on second run:
+
+{ acknowledged: true, matchedCount: 1, modifiedCount: 0, upsertedCount:
+0 }
+
+Explanation: Upsert means Update + Insert. - If the document exists, it
+updates the document. - If the document does not exist, it inserts a new
+document. - Running the same command again does not create a duplicate
+document.
+
+TASK 4: UPDATE WITH $set AND $inc TOGETHER
+
+Command:
+
+db.books.updateOne( { title: “Computer Networks” }, { $set: { status:
+“available” }, $inc: { copies: 3 } } )
+
+Expected result:
+
+{ acknowledged: true, matchedCount: 1, modifiedCount: 1 }
+
+Explanation: - $set changes the status to available. - $inc increases
+copies by 3. Old copies = 0 New copies = 3
+
+TASK 5: DELETE ONE MATCHING DOCUMENT
+
+
+Command:
+
+db.books.deleteOne( { title: “Old Almanac 1990” } )
+
+Expected result:
+
+{ acknowledged: true, deletedCount: 1 }
+
+Explanation: deleteOne() deletes only one matching document.
+
+TASK 6: DELETE MANY MATCHING DOCUMENTS
+
+
+
+Command:
+
+db.books.deleteMany({ status: { $in: [“damaged”, “lost”] } })
+
+Expected result:
+
+{ acknowledged: true, deletedCount: 2 }
+
+Explanation: - $in checks whether a field matches any value in the given
+array. - deleteMany() deletes all matching documents. Here, two damaged
+books are deleted.
+
+TASK 7: VERIFY THE FINAL DATA
+
+
+Command:
+
+db.books.find( {}, { _id: 0, title: 1, copies: 1 } ).sort({ title: 1 })
+
+Expected output:
+
+[ { title: “Artificial Intelligence”, copies: 4 }, { title: “Computer
+Networks”, copies: 3 }, { title: “Database Systems”, copies: 4 }, {
+title: “Operating Systems”, copies: 5 }]
+
+
